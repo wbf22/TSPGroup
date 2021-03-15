@@ -98,9 +98,11 @@ class TSPSolver:
 
 		startingCity = unvisited[0]
 
+		route = []
 		currentCity = startingCity
 		while len(unvisited) != 0:
 			unvisited.remove(currentCity)
+			route.append(currentCity)
 			# find shortest path to city2 from current city1
 			nextCity = self.findClosestCity(currentCity, unvisited)
 			if nextCity == currentCity: finalCity = currentCity
@@ -111,6 +113,12 @@ class TSPSolver:
 			currentCity = nextCity
 
 		results = {}
+		foundTour = False
+		bssf = TSPSolution(route)
+		count = len(route)
+		if bssf.cost < np.inf:
+			# Found a valid route
+			foundTour = True
 		end_time = time.time()
 		results['cost'] = bssf.cost if foundTour else math.inf
 		results['time'] = end_time - start_time
@@ -120,7 +128,7 @@ class TSPSolver:
 		results['total'] = None
 		results['pruned'] = None
 
-		return
+		return results
 
 	def findClosestCity(self, currentCity, unvisited):
 
@@ -131,7 +139,7 @@ class TSPSolver:
 		closestCity = currentCity
 		for i in range(len(edges)):
 			if edges[i] and (cities[i] in unvisited ):
-				distance = calculateDistance(cities[i], currentCity)
+				distance = self.calculateDistance(cities[i], currentCity)
 				if distance < shortestDistance:
 					shortestDistance = distance
 					closestCity = cities[i]
