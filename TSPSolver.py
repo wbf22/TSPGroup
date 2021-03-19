@@ -92,11 +92,12 @@ class TSPSolver:
 		# initialize unvisited[] to all cities
 		unvisited = self._scenario.getCities().copy()  # would it be better to just have an array of
 		# sizeof(unvisited) and initialize all values to 0?
-		previousPointers = []
-		for c in unvisited:
-			previousPointers.append(self.cityData(None, c))
+		# previousPointers = []
+		# for c in unvisited:
+		# 	previousPointers.append(self.cityData(None, c))
 
-		startingCity = unvisited[0]
+		startingCityIndex = 0
+		startingCity = unvisited[startingCityIndex]
 
 		route = []
 		currentCity = startingCity
@@ -105,10 +106,24 @@ class TSPSolver:
 			route.append(currentCity)
 			# find shortest path to city2 from current city1
 			nextCity = self.findClosestCity(currentCity, unvisited)
-			if nextCity == currentCity: finalCity = currentCity
 
 			# update previous pointers
-			previousPointers[nextCity._index].previous = currentCity
+			# previousPointers[nextCity._index].previous = currentCity
+			if len(unvisited) == 0:
+				if self.checkLastCity(startingCity, currentCity) == False:
+					startingCityIndex += 1
+					unvisited = self._scenario.getCities().copy()
+					route.clear()
+					currentCity = unvisited[startingCityIndex]
+					nextCity = currentCity
+					continue
+				else: break
+
+			if nextCity == currentCity:
+				startingCityIndex += 1
+				unvisited = self._scenario.getCities().copy()
+				route.clear()
+				currentCity = unvisited[startingCityIndex]
 
 			currentCity = nextCity
 
@@ -120,7 +135,7 @@ class TSPSolver:
 			# Found a valid route
 			foundTour = True
 		end_time = time.time()
-		results['cost'] = bssf.cost if foundTour else math.inf
+		results['cost'] = bssf.cost if foundTour else 999999
 		results['time'] = end_time - start_time
 		results['count'] = count
 		results['soln'] = bssf
@@ -147,12 +162,12 @@ class TSPSolver:
 		return closestCity
 
 
+	def checkLastCity(self, firstCity, currentCity):
+		edges = self._scenario.getEdges()[currentCity._index]
+		if edges[firstCity._index] == True:
+			return True
 
-		# if destination city is in unvisited
-		# update closest city
-
-		# return closest city
-		pass
+		return False
 
 
 	def calculateDistance(self, city1, city2):
