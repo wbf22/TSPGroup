@@ -203,8 +203,125 @@ class TSPSolver:
 	'''
 		
 	def fancy( self,time_allowance=60.0 ):
-		pass
-		
+		start_time = time.time()
+		#pick arbitrary node
+		#find node outside C closest to a node in C called K
+		#find edge in C that dik+dkj-dij is minimal
+		#Make new cycle replacing ij with ik and kj
+		#keeping going until C has all vertices
+		self.nodes = self._scenario.getCities()
+		self.edges = self._scenario.getEdges()
+		self.path = [self.nodes[0]]
+		self.nodes.remove(self.nodes[0])
 
+		while len(self.nodes) > 0:
+			self.addNode()
 
+		results = {}
+		foundTour = False
+		bssf = TSPSolution(self.path)
+		count = len(self.path)
+		if bssf.cost < np.inf:
+			# Found a valid route
+			foundTour = True
+		end_time = time.time()
+		results['cost'] = bssf.cost if foundTour else 999999
+		results['time'] = end_time - start_time
+		results['count'] = count
+		results['soln'] = bssf
+		results['max'] = None
+		results['total'] = None
+		results['pruned'] = None
 
+		return results
+
+	def addNode(self):
+		#using the "5: Random Insertion" algorithm from the website https://stemlounge.com/animated-algorithms-for-the-traveling-salesman-problem/
+		index = -1
+		#keep going until you find a valid node to add
+		while index == -1:
+			newNode = self.nextNodeToInsert()
+			index = self.whereToInsertNode(newNode)
+
+		self.path.insert(index, newNode)
+		self.nodes.remove(newNode)
+
+	def whereToInsertNode(self, newNode):
+		#deals with problem of when you only have one node in path
+		if len(self.path) == 1:
+			if self.edges[self.path[0]._index][newNode._index] == True:
+				return 1
+			else:
+				return -1
+		else: #once you have more than one node in path
+
+			#find pair of nodes in path that can connect to newNode
+			possibleEdgesToReplace = []
+			for n in range(len(self.path)):
+				if self.edges[self.path[n]._index][newNode._index] == True:
+					if n == len(self.path) - 1:
+						if self.edges[newNode._index][self.path[0]._index] == True:
+							possibleEdgesToReplace.append((n, 0))
+					else:
+						if self.edges[newNode._index][self.path[n + 1]._index] == True:
+							possibleEdgesToReplace.append((n, n + 1))
+			if len(possibleEdgesToReplace) == 0: return -1
+
+			#of those pairs that can connect, choose the best one
+			bestPair = None
+			bestDist = math.inf
+			for pair in possibleEdgesToReplace:
+				dist = self.calculateDistance(self.path[pair[0]], newNode) + self.calculateDistance(self.path[pair[1]], newNode)
+				if bestDist > dist:
+					bestPair = pair
+					bestDist = dist
+
+			return bestPair[1]
+
+	def nextNodeToInsert(self):
+		#Right now just chooses random node. Next we should get it to choose the closest one.
+		#But it must be able to choose a different node if the closest one doesn't connect
+		#to any pair in self.path.
+		# TODO Modify so it chooses the next closest node that can connect to path
+		return random.choice(self.nodes)
+	# ###!!! I had a problem when you want to add the closest node but none of the nodes in the path have edges to it
+	#these are the functions we made thursday april 1st
+	# def addNode(self):
+	# 	closestNode = self.getClosestNode()
+	# 	self.whereToInsertNode(closestNode)
+	#
+	# 	pass
+	#
+	# def getClosestNode(self):
+	# 	chosenNode = random.choice(self.path)
+	# 	closetNode = self.nodes[0]
+	# 	for n in self.nodes:
+	# 		if self.calculateDistance(n, chosenNode) < self.calculateDistance(closetNode, chosenNode):
+	# 			closetNode = n
+	#
+	# 	return chosenNode
+	#
+	# ###!!! I had a problem when you want to add the closest node but none of the nodes in the path have edges to it
+	# def calcNodesClosestToFarthest(self):
+	#
+	#
+	# def whereToInsertNode(self, node):
+	# 	i = None
+	# 	j = None
+	#
+	# 	#check placing each node in between each pair in the current path
+	# 	for n in range(self.path):
+	# 		#see if any node in path connects to
+	# 		if self.edges[node][]
+	#
+	#
+	# def dist(self, city1, city2):
+	# 	if self.edges[city1._index][city2._index] == True:
+	# 		y = city1._y - city2._y
+	# 		x = city1._x - city2._x
+	#
+	# 		dist = np.sqrt(y ** 2 + x ** 2)
+	#
+	# 		return dist
+	# 	else:
+	# 		return math.inf
