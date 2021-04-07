@@ -85,55 +85,153 @@ class TSPSolver:
 		solution found, and three null values for fields not used for this 
 		algorithm</returns> 
 	'''
+	# startingCity = None
+	# finalCity = None
+	# def greedy(self, time_allowance=60.0):
+	# 	start_time = time.time()
+	# 	# initialize unvisited[] to all cities
+	# 	unvisited = self._scenario.getCities().copy()  # would it be better to just have an array of
+	# 	# sizeof(unvisited) and initialize all values to 0?
+	# 	# previousPointers = []
+	# 	# for c in unvisited:
+	# 	# 	previousPointers.append(self.cityData(None, c))
+	#
+	# 	startingCityIndex = 0
+	# 	startingCity = unvisited[startingCityIndex]
+	#
+	# 	route = []
+	# 	currentCity = startingCity
+	# 	while len(unvisited) != 0:
+	# 		unvisited.remove(currentCity)
+	# 		route.append(currentCity)
+	# 		# find shortest path to city2 from current city1
+	# 		nextCity = self.findClosestCity(currentCity, unvisited)
+	#
+	# 		# update previous pointers
+	# 		# previousPointers[nextCity._index].previous = currentCity
+	# 		if len(unvisited) == 0:
+	# 			if self.checkLastCity(startingCity, currentCity) == False:
+	# 				startingCityIndex += 1
+	# 				unvisited = self._scenario.getCities().copy()
+	# 				route.clear()
+	# 				currentCity = unvisited[startingCityIndex]
+	# 				nextCity = currentCity
+	# 				continue
+	# 			else: break
+	#
+	# 		if nextCity == currentCity:
+	# 			startingCityIndex += 1
+	# 			unvisited = self._scenario.getCities().copy()
+	# 			route.clear()
+	# 			currentCity = unvisited[startingCityIndex]
+	#
+	# 		currentCity = nextCity
+	#
+	# 	results = {}
+	# 	foundTour = False
+	# 	bssf = TSPSolution(route)
+	# 	count = len(route)
+	# 	if bssf.cost < np.inf:
+	# 		# Found a valid route
+	# 		foundTour = True
+	# 	end_time = time.time()
+	# 	results['cost'] = bssf.cost if foundTour else 999999
+	# 	results['time'] = end_time - start_time
+	# 	results['count'] = count
+	# 	results['soln'] = bssf
+	# 	results['max'] = None
+	# 	results['total'] = None
+	# 	results['pruned'] = None
+	#
+	# 	return results
+	#
+	# def findClosestCity(self, currentCity, unvisited):
+	#
+	# 	# loop through all edges of city1
+	# 	edges = self._scenario.getEdges()[currentCity._index]
+	# 	cities = self._scenario.getCities()
+	# 	shortestDistance = 999999
+	# 	closestCity = currentCity
+	# 	for i in range(len(edges)):
+	# 		if edges[i] and (cities[i] in unvisited ):
+	# 			distance = self.calculateDistance(cities[i], currentCity)
+	# 			if distance < shortestDistance:
+	# 				shortestDistance = distance
+	# 				closestCity = cities[i]
+	#
+	# 	return closestCity
+	#
+	#
+	# def checkLastCity(self, firstCity, currentCity):
+	# 	edges = self._scenario.getEdges()[currentCity._index]
+	# 	if edges[firstCity._index] == True:
+	# 		return True
+	#
+	# 	return False
+	#
+	#
+	# def calculateDistance(self, city1, city2):
+	# 	y = city1._y - city2._y
+	# 	x = city1._x - city2._x
+	#
+	# 	dist = np.sqrt(y**2 + x**2)
+	#
+	# 	return dist
 	startingCity = None
 	finalCity = None
+
 	def greedy(self, time_allowance=60.0):
+
 		start_time = time.time()
-		# initialize unvisited[] to all cities
-		unvisited = self._scenario.getCities().copy()  # would it be better to just have an array of
-		# sizeof(unvisited) and initialize all values to 0?
-		# previousPointers = []
-		# for c in unvisited:
-		# 	previousPointers.append(self.cityData(None, c))
-
+		foundTour = False
 		startingCityIndex = 0
-		startingCity = unvisited[startingCityIndex]
+		self.cities = self._scenario.getCities()
+		results = {}
+		while foundTour == False:
 
-		route = []
-		currentCity = startingCity
-		while len(unvisited) != 0:
-			unvisited.remove(currentCity)
-			route.append(currentCity)
-			# find shortest path to city2 from current city1
-			nextCity = self.findClosestCity(currentCity, unvisited)
+			unvisited = self._scenario.getCities().copy()  # would it be better to just have an array of
 
-			# update previous pointers
-			# previousPointers[nextCity._index].previous = currentCity
-			if len(unvisited) == 0:
-				if self.checkLastCity(startingCity, currentCity) == False:
+			startingCity = unvisited[startingCityIndex]
+
+			# keep looping until all nodes are visited, will reset if path isn't complete
+			route = []
+			currentCity = startingCity
+			while len(unvisited) != 0:
+				unvisited.remove(currentCity)
+				route.append(currentCity)
+				# find shortest path to city2 from current city1
+				nextCity = self.findClosestCity(currentCity, unvisited)
+
+				if len(unvisited) == 0:
+					# reset if failed at end of tour
+					if self.checkLastCity(startingCity, currentCity) == False:
+						startingCityIndex += 1
+						unvisited = self._scenario.getCities().copy()
+						route.clear()
+						currentCity = unvisited[startingCityIndex]
+						nextCity = currentCity
+						continue
+					else:  # break if successful
+						break
+
+				# reset if failed attempt midway through tour
+				if nextCity == currentCity:
 					startingCityIndex += 1
 					unvisited = self._scenario.getCities().copy()
 					route.clear()
+					if startingCityIndex >= len(unvisited): break
 					currentCity = unvisited[startingCityIndex]
-					nextCity = currentCity
-					continue
-				else: break
 
-			if nextCity == currentCity:
-				startingCityIndex += 1
-				unvisited = self._scenario.getCities().copy()
-				route.clear()
-				currentCity = unvisited[startingCityIndex]
+				currentCity = nextCity
 
-			currentCity = nextCity
+			# if no tour was found return default random tour
+			if startingCityIndex == len(self._scenario.getCities()): return self.defaultRandomTour(time_allowance)
+			bssf = TSPSolution(route)
+			count = len(route)
+			if bssf.cost < np.inf:
+				# Found a valid route
+				foundTour = True
 
-		results = {}
-		foundTour = False
-		bssf = TSPSolution(route)
-		count = len(route)
-		if bssf.cost < np.inf:
-			# Found a valid route
-			foundTour = True
 		end_time = time.time()
 		results['cost'] = bssf.cost if foundTour else 999999
 		results['time'] = end_time - start_time
@@ -145,6 +243,7 @@ class TSPSolver:
 
 		return results
 
+	# helps find next city to visit using
 	def findClosestCity(self, currentCity, unvisited):
 
 		# loop through all edges of city1
@@ -153,14 +252,13 @@ class TSPSolver:
 		shortestDistance = 999999
 		closestCity = currentCity
 		for i in range(len(edges)):
-			if edges[i] and (cities[i] in unvisited ):
+			if edges[i] and (cities[i] in unvisited):
 				distance = self.calculateDistance(cities[i], currentCity)
 				if distance < shortestDistance:
 					shortestDistance = distance
 					closestCity = cities[i]
 
 		return closestCity
-
 
 	def checkLastCity(self, firstCity, currentCity):
 		edges = self._scenario.getEdges()[currentCity._index]
@@ -169,15 +267,13 @@ class TSPSolver:
 
 		return False
 
-
 	def calculateDistance(self, city1, city2):
-		y = city1._y - city2._y
-		x = city1._x - city2._x
+		# y = city1._y - city2._y
+		# x = city1._x - city2._x
+		#
+		# dist = np.sqrt(y**2 + x**2) * 1000
 
-		dist = np.sqrt(y**2 + x**2)
-
-		return dist
-
+		return city1.costTo(city2)
 	
 	''' <summary>
 		This is the entry point for the branch-and-bound algorithm that you will implement
@@ -276,14 +372,28 @@ class TSPSolver:
 					bestPair = pair
 					bestDist = dist
 
+			if bestPair == None:
+				return -1
+
 			return bestPair[1]
 
 	def nextNodeToInsert(self):
-		#Right now just chooses random node. Next we should get it to choose the closest one.
-		#But it must be able to choose a different node if the closest one doesn't connect
-		#to any pair in self.path.
-		# TODO Modify so it chooses the next closest node that can connect to path
-		return random.choice(self.nodes)
+
+
+		closestNode = None
+		while closestNode == None:
+			node = random.choice(self.path)
+			for n in self.nodes:
+				if closestNode == None:
+					if self.edges[node._index][n._index] == True:
+						closestNode = n
+				elif node.costTo(n) < node.costTo(closestNode):
+					closestNode = n
+
+
+		return closestNode
+
+
 	# ###!!! I had a problem when you want to add the closest node but none of the nodes in the path have edges to it
 	#these are the functions we made thursday april 1st
 	# def addNode(self):
