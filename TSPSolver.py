@@ -17,6 +17,15 @@ from TSPClasses import *
 import heapq
 import itertools
 
+class State:
+	def __init__( self, lev, cancelRow, cancelCol, lb, mat ):
+		self.level = lev
+		self.cancelR = cancelRow
+		self.cancelC = cancelCol
+		self.lowerbound = lb
+		self.matrix = mat
+		self.weight = lb - lev*456
+		self.next = -1
 
 
 class TSPSolver:
@@ -283,9 +292,194 @@ class TSPSolver:
 		not include the initial BSSF), the best solution found, and three more ints: 
 		max queue size, total number of states created, and number of pruned states.</returns> 
 	'''
-		
-	def branchAndBound( self, time_allowance=60.0 ):
-		pass
+
+	reducedMatrix = []
+	queue = []
+
+	def branchAndBound(self, time_allowance=60.0):
+		self.results = self.greedy()
+		self.cities = self._scenario.getCities()
+		self.ncities = len(self.cities)
+		self.bssf = self.results['cost']
+		self.intermediateSolutions = 0
+		self.total = 0
+		self.pruned = 0
+		self.max = 0
+		self.count = 0
+		self.lastState = None
+		foundTour = False
+
+		# Make the matrix
+		self.reducedMatrix = [[i.costTo(j) for j in self.cities] for i in self.cities]
+
+		# Reduce the matrix
+		lowBound = self.reduceRows()
+		lowBound += self.reduceCols()
+
+		# insert the first state into the queue
+		self.insertMat(State(0, [], [], lowBound, self.reducedMatrix.copy()))
+		self.queue[0].next = 0
+
+		start_time = time.time()
+
+		# here we loop through checking each state in the queue.
+		while len(self.queue) > 0 and time.time() - start_time < time_allowance:
+			cur = self.queue.pop(0)
+			self.searchState(cur)
+
+		end_time = time.time()
+
+		# prep the results and return
+		# if searchState() didn't find a result, just return the original greedy result
+		if self.lastState != None:
+			route = []
+			for i in self.lastState.cancelR:
+				route.append(self.cities[i])
+			soln = TSPSolution(route)
+
+			self.results['cost'] = self.bssf
+			self.results['time'] = end_time - start_time
+			self.results['count'] = self.count
+			self.results['soln'] = soln
+		else:
+			self.results['count'] = 0
+		self.results['max'] = self.max
+		self.results['total'] = self.total
+		self.results['pruned'] = self.pruned
+		return self.results
+
+	def searchState(self, cur):
+		# skip this state if the lowerbound is greater than the current bssf
+		if cur.lowerbound > self.bssf:
+			self.pruned += 1
+			return
+
+		row = cur.next
+		for col in range(self.ncities):
+			self.total += 1
+
+			# skip this cell if the column is alread done or if the cell value is np.inf
+			if cur.matrix[row][col] == np.inf:
+				self.pruned += 1
+				continue
+			if col in cur.cancelC:
+				continue
+			mat = [cur.matrix[i].copy() for i in range(self.ncities)]
+			cost = mat[row][col]
+			# cancel out row and col
+			for x in range(self.ncities):
+				mat[row][x] = np.inf
+				mat[x][col] = np.inf
+			mat[col][row] = np.inf
+			canR = cur.cancelR.copy()
+			canR.append(row)
+			canC = cur.cancelC.copy()
+			canC.append(col)
+
+			# reduce matrix
+			cost += self.reduceRows(mat, canR)
+			cost += self.reduceCols(mat, canC)
+
+			# check if complete state
+			if (cur.level + 1 == self.ncities):
+				self.intermediateSolutions += 1
+				# if it is, update the bssf
+				if cost + cur.lowerbound < self.bssf:
+					self.count += 1
+					self.bssf = cost + cur.lowerbound
+					self.lastState = State(cur.level + 1, canR, canC, cur.lowerbound + cost, mat)
+				else:
+					self.pruned += 1
+				continue
+
+			# prune this state if it is greater than the bssf
+			if cost > self.bssf:
+				self.pruned += 1
+				continue
+
+			# add the current state to the queue
+			boomer = State(cur.level + 1, canR, canC, cur.lowerbound + cost, mat)
+			boomer.next = col
+			self.insertMat(boomer)
+
+	# Function to insert state into queue
+	def insertMat(self, state):
+		# if the queue is empty, just insert
+		if len(self.queue) == 0:
+			self.queue.append(state)
+			return
+
+		inserted = False
+		# loop through until the current state is in the right spot, and insert
+		for k in range(len(self.queue)):
+			if state.weight <= self.queue[k].weight:
+				self.queue.insert(k, state)
+				inserted = True
+				break
+
+		# if the current state is greater than all items in the queue, insert at end
+		if not inserted:
+			self.queue.append(state)
+
+		# keep track of max length of queue
+		if len(self.queue) > self.max:
+			self.max = len(self.queue)
+		return
+
+	# this is a function to reduce the rows of a matrix
+	def reduceRows(self, matrix=None, cancelled=[]):
+		# if were not given a matrix, assume we are reducing the original matrix
+		if matrix == None:
+			matrix = self.reducedMatrix
+		boom = 0;
+		for i in range(self.ncities):
+			if i in cancelled:
+				continue
+			temp = self.getMinRow(matrix[i])
+			boom += temp
+			if temp == 0 or temp == np.inf:
+				continue
+			else:
+				for j in range(self.ncities):
+					matrix[i][j] -= temp
+		return boom
+
+	# this is a function to reduce the columns of a matrix
+	def reduceCols(self, matrix=None, cancelled=[]):
+		# if were not given a matrix, assume we are reducing the original matrix
+		if matrix == None:
+			matrix = self.reducedMatrix
+		boom = 0;
+		for i in range(self.ncities):
+			if i in cancelled:
+				continue
+			temp = self.getMinCol(i)
+			boom += temp
+			if temp == 0 or temp == np.inf:
+				continue
+			else:
+				for j in range(self.ncities):
+					matrix[j][i] -= temp
+		return boom
+
+	# this function just gets the smallest value in the row
+	def getMinRow(self, listC):
+		msf = np.inf
+		for i in listC:
+			if (i < msf):
+				msf = i
+		return msf
+
+	# this function just gets the smallest value in the col
+	def getMinCol(self, i, matrix=None):
+		if matrix == None:
+			matrix = self.reducedMatrix
+		msf = np.inf
+		for j in range(self.ncities):
+			boomer = matrix[j][i]
+			if (boomer < msf):
+				msf = boomer
+		return msf
 
 
 
@@ -300,34 +494,54 @@ class TSPSolver:
 		
 	def fancy( self,time_allowance=60.0 ):
 		start_time = time.time()
-		#pick arbitrary node
-		#find node outside C closest to a node in C called K
-		#find edge in C that dik+dkj-dij is minimal
-		#Make new cycle replacing ij with ik and kj
-		#keeping going until C has all vertices
-		self.nodes = self._scenario.getCities()
-		self.edges = self._scenario.getEdges()
-		self.path = [self.nodes[0]]
-		self.nodes.remove(self.nodes[0])
+		bestSolutionSoFar = None
 
-		while len(self.nodes) > 0:
-			self.addNode()
+		#run 100 times and keep the best solution
+		for i in range(100):
+			# pick arbitrary node
+			# find node outside C closest to a node in C called K
+			# find edge in C that dik+dkj-dij is minimal
+			# Make new cycle replacing ij with ik and kj
+			# keeping going until C has all vertices
+			self.nodes = self._scenario.getCities().copy()
+			self.edges = self._scenario.getEdges().copy()
+			staringNode = random.choice(self.nodes)
+			self.path = [staringNode]
+			self.nodes.remove(staringNode)
 
-		results = {}
+			start = time.time()
+			while len(self.nodes) > 0:
+				self.addNode()
+				if time.time() - start > 0.5: break; #will time out if no new nodes can be added
+
+
+
+
+			bssf = TSPSolution(self.path)
+			count = len(self.path)
+			if count == len(self._scenario.getCities()):
+				#check to see if it's the best result so far
+				if bestSolutionSoFar == None: bestSolutionSoFar = bssf
+				if bssf.cost < bestSolutionSoFar.cost: bestSolutionSoFar = bssf
+				#print(bssf.cost)
+
+		######
+		end_time = time.time()
+
 		foundTour = False
-		bssf = TSPSolution(self.path)
-		count = len(self.path)
-		if bssf.cost < np.inf:
+		if bestSolutionSoFar.cost < np.inf:
 			# Found a valid route
 			foundTour = True
-		end_time = time.time()
-		results['cost'] = bssf.cost if foundTour else 999999
+		results = {}
+		results['cost'] = bestSolutionSoFar.cost if foundTour else 999999
 		results['time'] = end_time - start_time
 		results['count'] = count
-		results['soln'] = bssf
+		results['soln'] = bestSolutionSoFar
 		results['max'] = None
 		results['total'] = None
 		results['pruned'] = None
+
+
 
 		return results
 
@@ -335,13 +549,16 @@ class TSPSolver:
 		#using the "5: Random Insertion" algorithm from the website https://stemlounge.com/animated-algorithms-for-the-traveling-salesman-problem/
 		index = -1
 		#keep going until you find a valid node to add
+		start = time.time()
 		while index == -1:
 			newNode = self.nextNodeToInsert()
 			index = self.whereToInsertNode(newNode)
+			if time.time() - start > 0.5: break; #will time out if node cannot be inserted
 
 		self.path.insert(index, newNode)
 		self.nodes.remove(newNode)
 
+	#finds two points in between which a node can be inserted
 	def whereToInsertNode(self, newNode):
 		#deals with problem of when you only have one node in path
 		if len(self.path) == 1:
@@ -377,6 +594,7 @@ class TSPSolver:
 
 			return bestPair[1]
 
+	#finds a node that is closest to a random node already in the path
 	def nextNodeToInsert(self):
 
 
